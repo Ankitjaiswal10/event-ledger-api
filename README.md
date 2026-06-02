@@ -43,6 +43,21 @@ src
 
 ---
 
+## API Documentation
+
+The REST endpoints are documented in this README.
+Swagger/OpenAPI support can be enabled via springdoc-openapi.
+
+## Concurrency Handling
+
+The current implementation performs an existence check
+before insert to satisfy idempotency.
+
+In a production environment, concurrency-safe idempotency
+would be enforced using the database primary key
+constraint on eventId together with transaction handling
+and DataIntegrityViolationException processing.
+
 ## API Endpoints
 
 ### Create Event
