@@ -16,7 +16,11 @@ import java.time.Instant;
 public class EventEntity {
 
     @Id
-    @Column(name = "event_id", nullable = false, unique = true)
+    @Column(
+            name = "event_id",
+            nullable = false,
+            unique = true
+    )
     private String eventId;
 
     @Column(name = "account_id", nullable = false)
