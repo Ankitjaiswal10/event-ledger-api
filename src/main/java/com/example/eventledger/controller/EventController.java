@@ -2,7 +2,6 @@ package com.example.eventledger.controller;
 
 import com.example.eventledger.dto.EventRequest;
 import com.example.eventledger.entity.EventEntity;
-import com.example.eventledger.exception.DuplicateEventException;
 import com.example.eventledger.repository.EventRepository;
 import com.example.eventledger.service.EventService;
 import jakarta.validation.Valid;
