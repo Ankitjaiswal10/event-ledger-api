@@ -11,9 +11,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
-import java.time.Instant;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.when;
 
 class EventServiceTest {
 
@@ -35,12 +36,8 @@ class EventServiceTest {
         EventRequest request = new EventRequest();
         request.setEventId("evt-001");
 
-        EventEntity existing = new EventEntity();
-        existing.setEventId("evt-001");
-
-        org.mockito.Mockito.when(
-                        repository.findById("evt-001"))
-                .thenReturn(java.util.Optional.of(existing));
+        when(repository.existsById("evt-001"))
+                .thenReturn(true);
 
         assertThrows(
                 DuplicateEventException.class,
@@ -51,12 +48,45 @@ class EventServiceTest {
     @Test
     void shouldCalculateZeroBalanceWhenNoEventsExist() {
 
-        org.mockito.Mockito.when(
-                        repository.calculateBalance("acct-001"))
-                .thenReturn(null);
+        when(
+                        repository.findByAccountIdOrderByEventTimestampAsc(
+                                "acct-001"))
+                .thenReturn(java.util.Collections.emptyList());
 
         assertEquals(
                 BigDecimal.ZERO,
+                service.getBalance("acct-001")
+        );
+    }
+
+    @Test
+    void shouldCalculateBalanceCorrectly() {
+
+        EventEntity credit1 = new EventEntity();
+        credit1.setType(EventType.CREDIT);
+        credit1.setAmount(BigDecimal.valueOf(100));
+
+        EventEntity credit2 = new EventEntity();
+        credit2.setType(EventType.CREDIT);
+        credit2.setAmount(BigDecimal.valueOf(50));
+
+        EventEntity debit = new EventEntity();
+        debit.setType(EventType.DEBIT);
+        debit.setAmount(BigDecimal.valueOf(25));
+
+        when(
+                        repository.findByAccountIdOrderByEventTimestampAsc(
+                                "acct-001"))
+                .thenReturn(
+                        java.util.List.of(
+                                credit1,
+                                credit2,
+                                debit
+                        )
+                );
+
+        assertEquals(
+                BigDecimal.valueOf(125),
                 service.getBalance("acct-001")
         );
     }
