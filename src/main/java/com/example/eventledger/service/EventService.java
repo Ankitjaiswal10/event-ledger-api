@@ -2,11 +2,13 @@ package com.example.eventledger.service;
 
 import com.example.eventledger.dto.EventRequest;
 import com.example.eventledger.entity.EventEntity;
+import com.example.eventledger.entity.EventType;
 import com.example.eventledger.exception.DuplicateEventException;
 import com.example.eventledger.exception.EventNotFoundException;
 import com.example.eventledger.repository.EventRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -24,25 +26,28 @@ public class EventService {
         this.objectMapper = objectMapper;
     }
 
+    @Transactional
     public EventEntity createEvent(EventRequest request) {
 
-        repository.findById(request.getEventId())
-                .ifPresent(event -> {
-                    throw new DuplicateEventException(
-                            "Event already exists: " + request.getEventId()
-                    );
-                });
+        if (repository.existsById(request.getEventId())) {
 
-        EventEntity entity = new EventEntity();
-
-        entity.setEventId(request.getEventId());
-        entity.setAccountId(request.getAccountId());
-        entity.setType(request.getType());
-        entity.setAmount(request.getAmount());
-        entity.setCurrency(request.getCurrency());
-        entity.setEventTimestamp(request.getEventTimestamp());
+            throw new DuplicateEventException(
+                    "Event already exists: "
+                            + request.getEventId()
+            );
+        }
 
         try {
+
+            EventEntity entity = new EventEntity();
+
+            entity.setEventId(request.getEventId());
+            entity.setAccountId(request.getAccountId());
+            entity.setType(request.getType());
+            entity.setAmount(request.getAmount());
+            entity.setCurrency(request.getCurrency());
+            entity.setEventTimestamp(request.getEventTimestamp());
+
             if (request.getMetadata() != null) {
                 entity.setMetadata(
                         objectMapper.writeValueAsString(
@@ -50,14 +55,20 @@ public class EventService {
                         )
                 );
             }
-        } catch (JsonProcessingException e) {
-            entity.setMetadata("{}");
-        }
 
-        return repository.save(entity);
+            return repository.save(entity);
+
+        } catch (JsonProcessingException ex) {
+
+            throw new RuntimeException(
+                    "Failed to process metadata",
+                    ex
+            );
+        }
     }
 
     public EventEntity getEvent(String eventId) {
+
         return repository.findById(eventId)
                 .orElseThrow(() ->
                         new EventNotFoundException(
@@ -65,19 +76,29 @@ public class EventService {
                         ));
     }
 
-    public List<EventEntity> getEventsByAccount(String accountId) {
-        return repository.findByAccountIdOrderByEventTimestampAsc(
-                accountId
-        );
+    public List<EventEntity> getEventsByAccount(
+            String accountId) {
+
+        return repository
+                .findByAccountIdOrderByEventTimestampAsc(
+                        accountId
+                );
     }
 
     public BigDecimal getBalance(String accountId) {
 
-        BigDecimal balance =
-                repository.calculateBalance(accountId);
-
-        return balance == null
-                ? BigDecimal.ZERO
-                : balance;
+        return repository
+                .findByAccountIdOrderByEventTimestampAsc(
+                        accountId
+                )
+                .stream()
+                .map(event ->
+                        event.getType() == EventType.CREDIT
+                                ? event.getAmount()
+                                : event.getAmount().negate())
+                .reduce(
+                        BigDecimal.ZERO,
+                        BigDecimal::add
+                );
     }
 }
